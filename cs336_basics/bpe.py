@@ -57,7 +57,7 @@ def train_bpe(input_path: str, # 输入文件的路径
               num_chunks: int = 200
 ) -> tuple[dict[int,bytes], list[tuple[bytes,bytes]]]: 
 # vocab分词器词表，一个从 int（词表中的 token ID）到 bytes（token 字节）的映射。
-# merges训练产生的 BPE 合并列表。每个列表项是一个包含 bytes 的元组 
+# merges训练产生的 BPE 合并列表。每个列表项是一个包含2个 bytes 的元组 
 # (<token1>, <token2>)，表示 <token1> 被合并到了 <token2>。这些合并操作应按创建的顺序排列。
     vocab = init_vocab(special_tokens)
     num_merges = vocab_size - len(vocab)
