@@ -53,7 +53,8 @@ def init_vocab(special_tokens:list[str] | None = None) -> dict[int, bytes]:
 def train_bpe(input_path: str, # 输入文件的路径
               vocab_size: int,  # 词表大小 256 + n
               special_tokens: list[str], # 特殊token列表
-              num_processes: int = 4
+              num_processes: int = 4,
+              num_chunks: int = 200
 ) -> tuple[dict[int,bytes], list[tuple[bytes,bytes]]]: 
 # vocab分词器词表，一个从 int（词表中的 token ID）到 bytes（token 字节）的映射。
 # merges训练产生的 BPE 合并列表。每个列表项是一个包含 bytes 的元组 
@@ -62,7 +63,7 @@ def train_bpe(input_path: str, # 输入文件的路径
     num_merges = vocab_size - len(vocab)
     endoftext_bytes = "<|endoftext|>".encode("utf-8")
     with open(input_path,"rb") as f:
-        bounds = find_chunk_boundaries(f,num_processes,endoftext_bytes)
+        bounds = find_chunk_boundaries(f, num_chunks, endoftext_bytes)
 
     task_args = [
         (input_path,start,end,special_tokens)
@@ -72,8 +73,15 @@ def train_bpe(input_path: str, # 输入文件的路径
         chunk_counters = pool.map(process_chunk, task_args)
 
     global_counts = Counter()
-    for c in chunk_counters:
-        global_counts.update(c)
+
+    with get_context("forkserver").Pool(processes=num_processes) as pool:
+        # imap_unordered 会在某个 chunk 处理完后立刻 yield 结果
+        for chunk_counter in tqdm(pool.imap_unordered(process_chunk, task_args), total=len(task_args)):
+            # 立即合并到主字典
+            global_counts.update(chunk_counter)
+            # 立即销毁子字典，释放宝贵的内存！
+            del chunk_counter 
+            
 
     
     word_list = []
