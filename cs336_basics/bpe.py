@@ -77,9 +77,9 @@ def train_bpe(input_path: str, # 输入文件的路径
     with get_context("forkserver").Pool(processes=num_processes) as pool:
         # imap_unordered 会在某个 chunk 处理完后立刻 yield 结果
         for chunk_counter in tqdm(pool.imap_unordered(process_chunk, task_args), total=len(task_args)):
-            # 立即合并到主字典
+            
             global_counts.update(chunk_counter)
-            # 立即销毁子字典，释放宝贵的内存！
+            
             del chunk_counter 
             
 
