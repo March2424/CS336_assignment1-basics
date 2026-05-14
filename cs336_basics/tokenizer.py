@@ -119,6 +119,7 @@ class Tokenizer:
                 token_id = self.vocab_reversed.get(part)
                 tokens_id.append(token_id)
         return tokens_id
+    # list[int]一个句子里的word或subword,后续每个int转换为长度为d_model的浮点数向量
             
     
     def encode_iterable(self, iterable: list[str]) -> iter:
