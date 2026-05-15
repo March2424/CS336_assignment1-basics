@@ -22,5 +22,24 @@ class Linear(nn.Module):
         # x:[batch，seq,in] * weight[out,in]T
         return torch.einsum('...i, oi -> ...o',x,self.weight)
 
+class embedding(nn.Module):
+    # num_embeddings: int为vocab_size embedding_dim: int是嵌入向量的维度即d_model
+    def __init__(self, num_embeddings: int, embedding_dim: int,
+                device: torch.device | None=None, 
+                dtype: torch.dtype | None = None):
+        super().__init__()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        kwargs = {'device': device,'dtype':dtype}
+        self.weight = nn.Parameter(torch.empty(num_embeddings,embedding_dim,**kwargs))
+        nn.init.trunc_normal_(self.weight,mean = 0.0, std = 1,a=-3.0,b=3.0)
+        
+
+    def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        # token_id[batch_size,seq_len]
+        # 从weight[vocab_size,d_model]中lookup， 输出[batch_size,seq,d_model]
+        return self.weight[token_ids]
+
+
 
     

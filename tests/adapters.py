@@ -53,8 +53,11 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    from cs336_basics.model import embedding
+    Embedding = embedding(vocab_size,d_model)
+    Embedding.load_state_dict({"weight":weights})
+    return Embedding(token_ids)
+    
 
 
 def run_swiglu(
