@@ -14,14 +14,14 @@ class Linear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         # 先分配内存，因为nn.parameter必须包装一个已经存在的tensor,empty只要求一块内存不写入,不使用bias
-        self.weight = nn.Parameter(torch.empty((out_features,in_features),**kwargs))
+        self.weight = nn.Parameter(torch.empty((in_features,out_features),**kwargs))
 
         std = math.sqrt(2.0 / (self.in_features+self.out_features))
         nn.init.trunc_normal_(self.weight,mean = 0.0,std = std,a=-3*std,b=3*std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x:[batch，seq,in] @ weight[out,in]T
-        return torch.einsum('...i, oi -> ...o',x,self.weight)
+        return torch.einsum('...i, io -> ...o',x,self.weight)
 
 class embedding(nn.Module):
     # num_embeddings: int为vocab_size embedding_dim: int是嵌入向量的维度即d_model
@@ -159,7 +159,7 @@ class MultiheadSelfAttention(nn.Module):
         self.q_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype)
-        self.wo_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+        self.output_proj = Linear(d_model,d_model,device=device,dtype=dtype)
 
         if theta is not None and max_seq_len is not None:
             self.rope = RotaryPositionalEmbedding(theta,self.head_dim,max_seq_len,device=device)
@@ -184,8 +184,23 @@ class MultiheadSelfAttention(nn.Module):
 
         attn_output = rearrange(attn_output,'... h s d -> ... s (h d)')
 
-        return self.wo_proj(attn_output)
+        return self.output_proj(attn_output)
 
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, d_ff: int,
+                 max_seq_len: int, theta: float, device=None, dtype=None):
+        super().__init__()
+        self.mha = MultiheadSelfAttention(d_model,num_heads,max_seq_len,theta,device,dtype)
+        self.ffn = SwiGLU(d_model,d_ff)
+        self.ln1 = RMSNorm(d_model,device=device,dtype=dtype)
+        self.ln2 = RMSNorm(d_model,device=device,dtype=dtype)
+    
+    def forward(self,x: torch.Tensor, token_positions: torch.Tensor = None) ->torch.Tensor:
+        x = x + self.mha(self.ln1(x),token_positions)
+
+        x = x + self.ffn(self.ln2(x))
+
+        return x
 
         
 
