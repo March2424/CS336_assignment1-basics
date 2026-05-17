@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+from einops import rearrange
 
 class Linear(nn.Module):
     def __init__(self, in_features: int,
@@ -143,6 +144,49 @@ def scaled_dot_product_attention(
     output = torch.matmul(attn_weights,V)
     return output
     
+class MultiheadSelfAttention(nn.Module):
+    def __init__(self, d_model: int, num_heads: int,
+                max_seq_len: int = 2048,
+                theta: float = 10000.0,
+                device: torch.device | None = None,
+                dtype: torch.dtype | None = None,
+                ):
+        super().__init__()
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+        self.q_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+        self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+        self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+        self.wo_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+
+        if theta is not None and max_seq_len is not None:
+            self.rope = RotaryPositionalEmbedding(theta,self.head_dim,max_seq_len,device=device)
+        else:
+            self.rope = None
+
+    def forward(self, x: torch.Tensor, token_position: torch.Tensor = None) -> torch.Tensor:
+        batch_size,seq_len,d_model = x.shape
+        # [batchsize,seqlen,dmodel] -> [batchsize,nhead,seq,head_dim]
+        q_head = self.q_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
+        k_head = self.k_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
+        v_head = self.v_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
+
+        if self.rope:
+            if token_position is not None:
+                q_head,k_head = self.rope.forward(q_head,token_position),self.rope.forward(k_head,token_position)
+        
+        mask = torch.tril(torch.ones(seq_len,seq_len,device=x.device,dtype=torch.bool))
+        
+        # (batch_size,num_head,seq_len,head_dim)
+        attn_output = scaled_dot_product_attention(q_head,k_head,v_head,mask)
+
+        attn_output = rearrange(attn_output,'... h s d -> ... s (h d)')
+
+        return self.wo_proj(attn_output)
+
+
         
 
 
