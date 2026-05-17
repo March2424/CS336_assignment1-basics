@@ -82,7 +82,47 @@ class SwiGLU(nn.Module):
         return self.w2(SiLU(self.w1(x)) * self.w3(x))
 
 
+class RotaryPositionalEmbedding(nn.Module):
+    '''
+    r(n)的行乘以q，v矩阵的行
+    rope的同一个token有d_head维，被划分为k=dh/2块，每一块的旋转角度根据公式不同分配不同的转速。
+    这样，每一个绝对位置i，在这d/2个平面的组合相位都是唯一的。没有任何两个 Token 会发生重合。
+    保证注意力机制的长短衰减
+    '''
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None = None):
+        super().__init__()
+        self.theta = theta
+        self.d_k = d_k
+        self.max_seq_len = max_seq_len
+        powers = torch.arange(0,d_k,2,device=device).float() / d_k
+        # [d_k/2,]
+        freqs = 1.0 / (theta ** powers)
+        # [max_seq_len,]
+        t = torch.arange(max_seq_len,device=device).float()
+        freqs_martrix = torch.outer(t,freqs) #[max_len,d_k/2]
+        self.register_buffer("cos_cached", freqs_martrix.cos(),persistent=False)
+        self.register_buffer("sin_cached", freqs_martrix.sin(),persistent=False)
         
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # [..., seq_len, dim], [seq_len,] -> [..., seq_len, dim]
+        # 提取[...,seq,d_k/2]
+        cos = self.cos_cached[token_positions]
+        sin = self.sin_cached[token_positions]
+        # 将d_k 拆解为 (d_k/2, 2)，分别分给x1，x2
+        # [...,seq_len,d_k/2]
+        x1, x2 = x.reshape(*x.shape[:-1], -1, 2).unbind(-1)
+        cos = cos.to(x.dtype)
+        sin = sin.to(x.dtype)
+        # x1[x1,x3,x5,...] x2[x2,x4,x6,...] x_out[...,seq_len,d_k/2,2]
+        x_out = torch.stack([x1*cos-x2*sin,
+                             x2*cos+x1*sin],dim = -1)
+        # [..., seq_len, d_k]
+        x_out = x_out.flatten(-2,-1)
+
+        return x_out
+        
+
+
 
 
 
