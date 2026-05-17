@@ -120,6 +120,29 @@ class RotaryPositionalEmbedding(nn.Module):
         x_out = x_out.flatten(-2,-1)
 
         return x_out
+    
+def softmax(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    max_logits = torch.max(logits, dim=dim, keepdim=True).values
+    exp_logits = torch.exp(logits-max_logits)
+    sum_exp = torch.sum(exp_logits,dim=dim,keepdim=True)
+    res_softmax = exp_logits / sum_exp
+    return res_softmax
+
+
+def scaled_dot_product_attention(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,        
+    mask: torch.Tensor = None,
+) -> torch.Tensor:
+    d_k = Q.size(-1)
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0,float('-inf'))
+    attn_weights = softmax(scores,dim=-1)
+    output = torch.matmul(attn_weights,V)
+    return output
+    
         
 
 
