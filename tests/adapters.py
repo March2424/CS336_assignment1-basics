@@ -402,7 +402,53 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    from cs336_basics.model import TransformerLM
+    device = in_indices.device
+    dtype = weights["token_embeddings.weight"].dtype
+    
+    # 2. 初始化你的 TransformerLM 模型
+    model = TransformerLM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        rope_theta=rope_theta,
+        device=device,
+        dtype=dtype,
+    )
+
+    with torch.no_grad():
+        # Token Embedding: 双方约定一致，均为 (vocab_size, d_model)，无需转置
+        model.token_embeddings.weight.copy_(weights["token_embeddings.weight"].to(device))
+        
+        # 循环加载每一层的 TransformerBlock 参数
+        for i in range(num_layers):
+            layer = model.layers[i]
+            
+            # 多头注意力投影矩阵：快照为 (out, in)，你的 Linear 期望 (in, out)，必须转置 (.T)
+            layer.mha.q_proj.weight.copy_(weights[f"layers.{i}.attn.q_proj.weight"].to(device).T)
+            layer.mha.k_proj.weight.copy_(weights[f"layers.{i}.attn.k_proj.weight"].to(device).T)
+            layer.mha.v_proj.weight.copy_(weights[f"layers.{i}.attn.v_proj.weight"].to(device).T)
+            layer.mha.output_proj.weight.copy_(weights[f"layers.{i}.attn.output_proj.weight"].to(device).T)
+            
+            # RMSNorm 权重：一维向量，无需转置
+            layer.ln1.weight.copy_(weights[f"layers.{i}.ln1.weight"].to(device))
+            layer.ln2.weight.copy_(weights[f"layers.{i}.ln2.weight"].to(device))
+            
+            # FFN 门控前向网络矩阵：均需要转置 (.T)
+            layer.ffn.w1.weight.copy_(weights[f"layers.{i}.ffn.w1.weight"].to(device).T)
+            layer.ffn.w2.weight.copy_(weights[f"layers.{i}.ffn.w2.weight"].to(device).T)
+            layer.ffn.w3.weight.copy_(weights[f"layers.{i}.ffn.w3.weight"].to(device).T)
+            
+        # 最后的层归一化（Final RMSNorm）
+        if hasattr(model, "final_norm") and hasattr(model.final_norm, "weight"):
+            model.final_norm.weight.copy_(weights["ln_final.weight"].to(device))
+            
+        # 输出层（LM Head）：快照为 (vocab_size, d_model)，你的 Linear 期望 (d_model, vocab_size)，必须转置 (.T)
+        model.linear_out.weight.copy_(weights["lm_head.weight"].to(device).T)
+    return model(in_indices)
 
 
 def run_rmsnorm(
