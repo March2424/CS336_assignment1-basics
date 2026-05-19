@@ -98,4 +98,27 @@ def cosine_annealing_lr(
 
     return alpha_min + coeff * (alpha_max - alpha_min)
 
+def gradient_clip(
+        parameters: Iterable[torch.nn.Parameter],
+        max_l2_norm: float,
+        eps: float = 1e-6
+) -> None:
+    parameters = [p for p in parameters if p.grad is not None]
+    if not parameters:
+        return 
+    total_norm = 0.0
+    for p in parameters:
+        # p.grad是一个和p形状完全一样的tensor
+        param_norm = torch.norm(p.grad.detach(), p = 2)
+        total_norm += param_norm.item() ** 2
+
+    total_norm = total_norm ** 0.5
+
+    if total_norm > max_l2_norm:
+        clip_norm = max_l2_norm / (total_norm + eps)
+
+        for p in parameters:
+            p.grad.detach().mul_(clip_norm)
+
+
 
