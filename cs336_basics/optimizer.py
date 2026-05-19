@@ -77,4 +77,25 @@ class AdamW(torch.optim.Optimizer):
 
         return loss
 
+def cosine_annealing_lr(
+        t: int,
+        alpha_max: float,
+        alpha_min: float,
+        T_w: int,
+        T_c: int
+        ) -> float:
+    
+    if T_w > t:
+        alpha_t = alpha_max * t / T_w
+        return alpha_t
+    
+    if t > T_c:
+        return alpha_min
+    
+    decay_ratio = (t - T_w) / (T_c - T_w)
+
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+
+    return alpha_min + coeff * (alpha_max - alpha_min)
+
 
