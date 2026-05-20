@@ -157,7 +157,7 @@ def run_multihead_self_attention(
         "q_proj.weight": q_proj_weight,
         "k_proj.weight": k_proj_weight,
         "v_proj.weight": v_proj_weight,
-        "wo_proj.weight": o_proj_weight,
+        "output_proj.weight": o_proj_weight,
     })
     return mha(in_features)
 
@@ -205,7 +205,7 @@ def run_multihead_self_attention_with_rope(
         "q_proj.weight": q_proj_weight,
         "k_proj.weight": k_proj_weight,
         "v_proj.weight": v_proj_weight,
-        "wo_proj.weight": o_proj_weight,
+        "output_proj.weight": o_proj_weight,
     })
     return mha(in_features, token_positions)
 
@@ -306,14 +306,14 @@ def run_transformer_block(
     """
     from cs336_basics.model import TransformerBlock
     block = TransformerBlock(d_model, num_heads, d_ff, max_seq_len, theta)
-    block.mha.q_proj.weight.data = weights["attn.q_proj.weight"].T
-    block.mha.k_proj.weight.data = weights["attn.k_proj.weight"].T
-    block.mha.v_proj.weight.data = weights["attn.v_proj.weight"].T
-    block.mha.output_proj.weight.data = weights["attn.output_proj.weight"].T
+    block.mha.q_proj.weight.data = weights["attn.q_proj.weight"]
+    block.mha.k_proj.weight.data = weights["attn.k_proj.weight"]
+    block.mha.v_proj.weight.data = weights["attn.v_proj.weight"]
+    block.mha.output_proj.weight.data = weights["attn.output_proj.weight"]
     block.ln1.weight.data = weights["ln1.weight"]
-    block.ffn.w1.weight.data = weights["ffn.w1.weight"].T
-    block.ffn.w2.weight.data = weights["ffn.w2.weight"].T
-    block.ffn.w3.weight.data = weights["ffn.w3.weight"].T
+    block.ffn.w1.weight.data = weights["ffn.w1.weight"]
+    block.ffn.w2.weight.data = weights["ffn.w2.weight"]
+    block.ffn.w3.weight.data = weights["ffn.w3.weight"]
     block.ln2.weight.data = weights["ln2.weight"]
     seq_len = in_features.shape[1]
     token_positions = torch.arange(seq_len, device=in_features.device)
@@ -428,26 +428,26 @@ def run_transformer_lm(
             layer = model.layers[i]
             
             # 多头注意力投影矩阵：快照为 (out, in)，你的 Linear 期望 (in, out)，必须转置 (.T)
-            layer.mha.q_proj.weight.copy_(weights[f"layers.{i}.attn.q_proj.weight"].to(device).T)
-            layer.mha.k_proj.weight.copy_(weights[f"layers.{i}.attn.k_proj.weight"].to(device).T)
-            layer.mha.v_proj.weight.copy_(weights[f"layers.{i}.attn.v_proj.weight"].to(device).T)
-            layer.mha.output_proj.weight.copy_(weights[f"layers.{i}.attn.output_proj.weight"].to(device).T)
+            layer.mha.q_proj.weight.copy_(weights[f"layers.{i}.attn.q_proj.weight"].to(device))
+            layer.mha.k_proj.weight.copy_(weights[f"layers.{i}.attn.k_proj.weight"].to(device))
+            layer.mha.v_proj.weight.copy_(weights[f"layers.{i}.attn.v_proj.weight"].to(device))
+            layer.mha.output_proj.weight.copy_(weights[f"layers.{i}.attn.output_proj.weight"].to(device))
             
             # RMSNorm 权重：一维向量，无需转置
             layer.ln1.weight.copy_(weights[f"layers.{i}.ln1.weight"].to(device))
             layer.ln2.weight.copy_(weights[f"layers.{i}.ln2.weight"].to(device))
             
             # FFN 门控前向网络矩阵：均需要转置 (.T)
-            layer.ffn.w1.weight.copy_(weights[f"layers.{i}.ffn.w1.weight"].to(device).T)
-            layer.ffn.w2.weight.copy_(weights[f"layers.{i}.ffn.w2.weight"].to(device).T)
-            layer.ffn.w3.weight.copy_(weights[f"layers.{i}.ffn.w3.weight"].to(device).T)
+            layer.ffn.w1.weight.copy_(weights[f"layers.{i}.ffn.w1.weight"].to(device))
+            layer.ffn.w2.weight.copy_(weights[f"layers.{i}.ffn.w2.weight"].to(device))
+            layer.ffn.w3.weight.copy_(weights[f"layers.{i}.ffn.w3.weight"].to(device))
             
         # 最后的层归一化（Final RMSNorm）
         if hasattr(model, "final_norm") and hasattr(model.final_norm, "weight"):
             model.final_norm.weight.copy_(weights["ln_final.weight"].to(device))
             
         # 输出层（LM Head）：快照为 (vocab_size, d_model)，你的 Linear 期望 (d_model, vocab_size)，必须转置 (.T)
-        model.linear_out.weight.copy_(weights["lm_head.weight"].to(device).T)
+        model.linear_out.weight.copy_(weights["lm_head.weight"].to(device))
     return model(in_indices)
 
 
@@ -489,7 +489,8 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    from cs336_basics.model import SiLU
+    return SiLU(in_features)
 
 
 def run_get_batch(

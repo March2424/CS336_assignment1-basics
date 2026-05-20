@@ -14,14 +14,14 @@ class Linear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         # 先分配内存，因为nn.parameter必须包装一个已经存在的tensor,empty只要求一块内存不写入,不使用bias
-        self.weight = nn.Parameter(torch.empty((in_features,out_features),**kwargs))
+        self.weight = nn.Parameter(torch.empty((out_features,in_features),**kwargs))
 
         std = math.sqrt(2.0 / (self.in_features+self.out_features))
         nn.init.trunc_normal_(self.weight,mean = 0.0,std = std,a=-3*std,b=3*std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x:[batch，seq,in] @ weight[out,in]T
-        return torch.einsum('...i, io -> ...o',x,self.weight)
+        return torch.einsum('...i, oi -> ...o',x,self.weight)
 
 class embedding(nn.Module):
     # num_embeddings: int为vocab_size embedding_dim: int是嵌入向量的维度即d_model
@@ -264,6 +264,58 @@ class TransformerLM(nn.Module):
 
         logits = self.linear_out(x)
 
+        return logits
+    
+    @torch.no_grad()
+    def generate(
+        self,
+        prompt_ids:torch.Tensor,
+        max_new_tokens:int, 
+        eos_token_id:int = None,
+        temperature:float = 1.0,
+        top_p:float = 1.0,
+    ) -> torch.Tensor:
+        self.eval()
+
+        generated = prompt_ids.clone()
+
+        for _ in range(max_new_tokens):
+            idx_cond = generated[:, -self.context_length:]
+            # [batch_size,seq_len,vocab] -> [batch_size,1,vocab]
+            logit = self.forward(idx_cond)
+            logit = logit[:,-1,:]
+
+            if temperature != 0:
+                logits = logits / (temperature + 1e-8)
+
+            if top_p < 1.0:
+                logits = self.top_p_filter(logits,top_p)
+
+            probs = softmax(logits, dim = -1)
+            next_token = torch.multinomial(probs, num_samples=1) # (Batch, 1)
+
+            generated = torch.cat((generated,next_token),dim=1)
+
+            if eos_token_id is not None and (next_token == eos_token_id).all():
+                break
+
+        return generated
+    
+    def top_p_filter(
+            self,
+            logits:torch.Tensor,
+            top_p: float
+    ) -> torch.Tensor:
+        sorted_probs, sorted_indices = torch.sort(logits, descending=True,dim=-1) # from high to low
+        cumsum_probs = torch.cumsum(softmax(sorted_probs, dim=-1), dim=-1)
+        # Find a smallest set, let its sum >= top_p
+        # cumsum_probs - sorted_probs means the all-left-probs sum
+        sorted_indices_to_remove = cumsum_probs > top_p
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 0] = False
+        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+
+        logits = logits.masked_fill(indices_to_remove, float('-inf'))
         return logits
 
 

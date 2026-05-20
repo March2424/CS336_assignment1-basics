@@ -107,6 +107,7 @@ def main():
     )
 
     # 分为两种循环方法，一种用epoch，一种用maxiters
+    # 每一次iter循环都是跑一个batch，里面有batchsize个句子
     for it in range(start_iter, args.max_iters):
         
         lr = cosine_annealing_lr(it, args.lr, args.min_lr, args.warmup_iters, args.max_iters)
