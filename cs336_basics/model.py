@@ -160,8 +160,8 @@ class MultiheadSelfAttention(nn.Module):
         self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.output_proj = Linear(d_model,d_model,device=device,dtype=dtype)
-        self.ln_q = RMSNorm(head_dim,device=device,dtype=dtype)
-        self.ln_k = RMSNorm(head_dim,device=device,dtype=dtype)
+        self.ln_q = RMSNorm(self.head_dim,device=device,dtype=dtype)
+        self.ln_k = RMSNorm(self.head_dim,device=device,dtype=dtype)
 
         if theta is not None and max_seq_len is not None:
             self.rope = RotaryPositionalEmbedding(theta,self.head_dim,max_seq_len,device=device)
@@ -267,19 +267,17 @@ class TransformerLM(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
+        if isinstance(m, Linear):
             if hasattr(m, 'is_residual_output') and m.is_residual_output:
-                torch.nn.init.zeros_(m.W) #核心投影层权重直接归零
-                if m.bias is not None:
-                    torch.nn.init.zeros_(m.bias)
+                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零  
             else:
                 std = math.sqrt(2.0 / (m.in_features + m.out_features))
                 nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-        elif isinstance(module, nn.Embedding):
-            #针对绑定后的Embedding进行初始化
-            nn.init.trunc_normal_(m.weight, mean=0.0, std=1.0, a=-3.0, b=3.0)
+                
+        elif isinstance(m, embedding):
+            #针对绑定后的embedding进行初始化
+            std = math.sqrt(2.0 / (m.num_embeddings + m.embedding_dim))
+            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         # [batch_size,seq_len] -> [batch_size,seq_len,d_model]
@@ -318,7 +316,7 @@ class TransformerLM(nn.Module):
             logit = logit[:,-1,:]
 
             if temperature != 0:
-                logits = logits / (temperature + 1e-8)
+                logits = logit / (temperature + 1e-8)
 
             if top_p < 1.0:
                 logits = self.top_p_filter(logits,top_p)
