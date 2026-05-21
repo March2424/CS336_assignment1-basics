@@ -162,12 +162,14 @@ cython_debug/
 .ruff_cache/
 *.zip
 
-data/
+data/*
 
 !data/openwebtext/
 !data/openwebtext-32k/
 !data/tinystories/
-
+data/**/*.bin
+data/**/*.npy
+data/**/*.pkl
 wandb/
 
 .DS_Store
