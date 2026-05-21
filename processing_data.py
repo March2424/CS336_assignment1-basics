@@ -62,22 +62,22 @@ def process_file_efficiently(input_txt_path, output_bin_path, tokenizer, batch_s
     print(f"二进制文件已保存至: {output_bin_path}\n" + "-"*30)
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--tokenizer_path", type=str, default="./data/openwebtext/tokenizer.json")
-    # parser.add_argument("--train_input", type=str, default="./data/owt_train.txt")
-    # parser.add_argument("--valid_input", type=str, default="./data/owt_valid.txt")
-    # parser.add_argument("--train_output", type=str, default="./data/openwebtext/train.bin")
-    # parser.add_argument("--valid_output", type=str, default="./data/openwebtext/val.bin")
-    # # 这里的 batch_size 指的是多少行文本一起喂给 Tokenizer，可以根据 CPU 核心数调整
-    # parser.add_argument("--batch_size", type=int, default=8192, help="每次并行处理的文本行数")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tokenizer_path", type=str, default="./data/tinystories/tokenizer.json")
-    parser.add_argument("--train_input", type=str, default="./data/TinyStoriesV2-GPT4-train.txt")
-    parser.add_argument("--valid_input", type=str, default="data/TinyStoriesV2-GPT4-valid.txt")
-    parser.add_argument("--train_output", type=str, default="./data/tinystories/train.bin")
-    parser.add_argument("--valid_output", type=str, default="./data/tinystories/val.bin")
+    parser.add_argument("--tokenizer_path", type=str, default="./data/openwebtext/tokenizer.json")
+    parser.add_argument("--train_input", type=str, default="./data/owt_train.txt")
+    parser.add_argument("--valid_input", type=str, default="./data/owt_valid.txt")
+    parser.add_argument("--train_output", type=str, default="./data/openwebtext/train.bin")
+    parser.add_argument("--valid_output", type=str, default="./data/openwebtext/val.bin")
     # 这里的 batch_size 指的是多少行文本一起喂给 Tokenizer，可以根据 CPU 核心数调整
     parser.add_argument("--batch_size", type=int, default=8192, help="每次并行处理的文本行数")
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--tokenizer_path", type=str, default="./data/tinystories/tokenizer.json")
+    # parser.add_argument("--train_input", type=str, default="./data/TinyStoriesV2-GPT4-train.txt")
+    # parser.add_argument("--valid_input", type=str, default="data/TinyStoriesV2-GPT4-valid.txt")
+    # parser.add_argument("--train_output", type=str, default="./data/tinystories/train.bin")
+    # parser.add_argument("--valid_output", type=str, default="./data/tinystories/val.bin")
+    # # 这里的 batch_size 指的是多少行文本一起喂给 Tokenizer，可以根据 CPU 核心数调整
+    # parser.add_argument("--batch_size", type=int, default=8192, help="每次并行处理的文本行数")
     args = parser.parse_args()
 
     print(f"加载 Tokenizer: {args.tokenizer_path}")

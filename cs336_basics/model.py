@@ -249,6 +249,20 @@ class TransformerLM(nn.Module):
 
         self.linear_out = Linear(d_model,vocab_size)
 
+        # 添加权重绑定(Weight Tying)
+        #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
+        self.linear_out.weight = self.token_embedding.weight
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            std = math.sqrt(2.0 / (m.in_features + m.out_features))
+            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+        elif isinstance(module, nn.Embedding):
+            #针对绑定后的Embedding进行初始化
+            nn.init.trunc_normal_(m.weight, mean=0.0, std=1.0, a=-3.0, b=3.0)
+
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         # [batch_size,seq_len] -> [batch_size,seq_len,d_model]
         b,s = token_ids.shape
