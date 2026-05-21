@@ -164,4 +164,10 @@ cython_debug/
 
 data/
 
+!data/openwebtext/
+!data/openwebtext-32k/
+!data/tinystories/
+
+wandb/
+
 .DS_Store

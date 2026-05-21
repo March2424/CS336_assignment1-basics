@@ -45,7 +45,7 @@ def main():
     parser.add_argument("--out_dir", type=str, default="out")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
 
-    
+    parser.add_argument("--wandb_project", type=str, default=None, help="The name of the wandb project")
     parser.add_argument("--run_name", type=str, default=None, help="WandB 实验名称")
 
     args = parser.parse_args()
