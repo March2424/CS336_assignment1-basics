@@ -48,3 +48,4 @@ gunzip owt_valid.txt.gz
 cd ..
 ```
 
+实现了weight typing、qk norm、Initialization of projections to zero / muP-like

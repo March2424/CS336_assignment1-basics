@@ -160,6 +160,8 @@ class MultiheadSelfAttention(nn.Module):
         self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.output_proj = Linear(d_model,d_model,device=device,dtype=dtype)
+        self.ln_q = RMSNorm(head_dim,device=device,dtype=dtype)
+        self.ln_k = RMSNorm(head_dim,device=device,dtype=dtype)
 
         if theta is not None and max_seq_len is not None:
             self.rope = RotaryPositionalEmbedding(theta,self.head_dim,max_seq_len,device=device)
@@ -172,6 +174,10 @@ class MultiheadSelfAttention(nn.Module):
         q_head = self.q_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
         k_head = self.k_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
         v_head = self.v_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
+
+        q_head = self.ln_q(q_head)
+        k_head = self.ln_k(k_head)
+
 
         if self.rope:
             if token_position is not None:
@@ -192,10 +198,16 @@ class TransformerBlock(nn.Module):
         super().__init__()
         self.mha = MultiheadSelfAttention(d_model,num_heads,max_seq_len,theta,device,dtype)
         self.ffn = SwiGLU(d_model,d_ff)
+        #实现Initialization of projections to zero
+        self.mha.output_proj.is_residual_output = True
+        self.ffn.w2.is_residual_output = True
         self.ln1 = RMSNorm(d_model,device=device,dtype=dtype)
         self.ln2 = RMSNorm(d_model,device=device,dtype=dtype)
+        
     
+    # 实现的是prenorm，可以尝试一下qk norm以及hybird norm（对于小模型效果不佳）
     def forward(self,x: torch.Tensor, token_positions: torch.Tensor = None) ->torch.Tensor:
+
         x = x + self.mha(self.ln1(x),token_positions)
 
         x = x + self.ffn(self.ln2(x))
@@ -251,14 +263,20 @@ class TransformerLM(nn.Module):
 
         # 添加权重绑定(Weight Tying)
         #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
-        self.linear_out.weight = self.token_embedding.weight
+        self.linear_out.weight = self.token_embeddings.weight
+        self.apply(self._init_weights)
 
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear):
-            std = math.sqrt(2.0 / (m.in_features + m.out_features))
-            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-            if m.bias is not None:
-                nn.init.zeros_(m.bias)
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            if hasattr(m, 'is_residual_output') and m.is_residual_output:
+                torch.nn.init.zeros_(m.W) #核心投影层权重直接归零
+                if m.bias is not None:
+                    torch.nn.init.zeros_(m.bias)
+            else:
+                std = math.sqrt(2.0 / (m.in_features + m.out_features))
+                nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
         elif isinstance(module, nn.Embedding):
             #针对绑定后的Embedding进行初始化
             nn.init.trunc_normal_(m.weight, mean=0.0, std=1.0, a=-3.0, b=3.0)
