@@ -30,9 +30,9 @@ In another model, I add the MoE module to previous QKNorm and zero module.
 
 Here is an error!!! The batchsize in this pictures is bas256, but in this experient it's 64!
 
-![W&B Chart 2026_5_22 17_00_02](.\image\W&B Chart 2026_5_22 17_00_02.png)
+![W&B Chart 1](./image/WB_Chart_1.png)
 
-![W&B Chart 2026_5_22 17_00_19](.\image\W&B Chart 2026_5_22 17_00_19.png)
+![W&B Chart 2](./image/WB_Chart_2.png)
 
 
 
@@ -73,9 +73,9 @@ python3 cs336_basics/train.py \
 
 
 
-![W&B Chart 2026_5_22 17_52_36](.\image\W&B Chart 2026_5_22 17_52_36.png)
+![W&B Chart 3](./image/WB_Chart_3.png)
 
-![W&B Chart 2026_5_22 17_52_54](.\image\W&B Chart 2026_5_22 17_52_54.png)
+![W&B Chart 4](./image/WB_Chart_4.png)
 
 **Updated Dense (nomoe)**: **1.297** 
 
