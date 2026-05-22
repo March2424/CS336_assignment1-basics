@@ -85,6 +85,9 @@ python3 cs336_basics/train.py \
 
 SO, with a very small number of parameters (such as only 4 layers and 512 dimensions) and a conservative learning rate, forcibly splitting the parameters to establish a hybrid expert model will lead to a significant performance degradation. It is not recommended to add the MoE module.
 
+Generated sample
+
+Once upon a time, there was a little girl named Lily. She loved to play in the garden with her dog, Max. They would run and jump and have lots of fun together. One day, they found a big, shiny rock. It was very pretty. Lily and Max wanted to keep it.Lily and Max decided to bury the rock in the garden. They dug a hole and put the rock in it. They covered it with dirt and covered it with dirt. Then, they went inside to have a snack. They had a yummy snack and talked about their fun day in the garden.After they finished, Lily and Max went outside to play. They ran around the garden, laughing and playing. Lily showed Max how she buried the rock and told him how she buried it. Max wagged his tail and barked happily. They played until the sun went down, and then they went inside to rest.
 
 
 
