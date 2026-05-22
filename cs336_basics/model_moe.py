@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from einops import rearrange
+from cs336_basics.MoE import MoE
 
 class Linear(nn.Module):
     def __init__(self, in_features: int,
@@ -197,22 +198,27 @@ class TransformerBlock(nn.Module):
                  max_seq_len: int, theta: float, device=None, dtype=None):
         super().__init__()
         self.mha = MultiheadSelfAttention(d_model,num_heads,max_seq_len,theta,device,dtype)
-        self.ffn = SwiGLU(d_model,d_ff)
+        # self.ffn = SwiGLU(d_model,d_ff)
+        self.moe = MoE(d_model, d_ff, num_experts=4, top_k=1)
         #实现Initialization of projections to zero
         self.mha.output_proj.is_residual_output = True
-        self.ffn.w2.is_residual_output = True
+        # self.ffn.w2.is_residual_output = True
+        for expert in self.moe.experts:
+            expert.w2.is_residual_output = True
         self.ln1 = RMSNorm(d_model,device=device,dtype=dtype)
         self.ln2 = RMSNorm(d_model,device=device,dtype=dtype)
         
     
     # 实现的是prenorm，可以尝试一下qk norm以及hybird norm（对于小模型效果不佳）
-    def forward(self,x: torch.Tensor, token_positions: torch.Tensor = None) ->torch.Tensor:
+    def forward(self,x: torch.Tensor, token_positions: torch.Tensor = None):
 
         x = x + self.mha(self.ln1(x),token_positions)
 
-        x = x + self.ffn(self.ln2(x))
+        # 接收 MoE 的输出和 auxiliary loss
+        moe_out, layer_aux_loss = self.moe(self.ln2(x))
+        x = x + moe_out
 
-        return x
+        return x,layer_aux_loss
 
 
 # class output_layer(nn.Module):
@@ -260,24 +266,8 @@ class TransformerLM(nn.Module):
             self.final_norm = nn.Identity()
 
         self.linear_out = Linear(d_model,vocab_size)
-        
-        # 添加权重绑定(Weight Tying)
-        #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
-        self.linear_out.weight = self.token_embeddings.weight
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, Linear):
-            if hasattr(m, 'is_residual_output') and m.is_residual_output:
-                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零  
-            else:
-                std = math.sqrt(2.0 / (m.in_features + m.out_features))
-                nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-                
-        elif isinstance(m, embedding):
-            #针对绑定后的embedding进行初始化
-            std = math.sqrt(2.0 / (m.num_embeddings + m.embedding_dim))
-            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
+        # self.token_embeddings.in_features = self.linear_out.in_features
+        # self.token_embeddings.out_features = self.linear_out.out_features
 
         # 添加权重绑定(Weight Tying)
         #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
@@ -287,13 +277,14 @@ class TransformerLM(nn.Module):
     def _init_weights(self, m):
         if isinstance(m, Linear):
             if hasattr(m, 'is_residual_output') and m.is_residual_output:
-                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零  
+                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零
+                
             else:
                 std = math.sqrt(2.0 / (m.in_features + m.out_features))
                 nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
                 
         elif isinstance(m, embedding):
-            #针对绑定后的embedding进行初始化
+            #针对绑定后的Embedding进行初始化
             std = math.sqrt(2.0 / (m.num_embeddings + m.embedding_dim))
             nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
 
@@ -303,8 +294,11 @@ class TransformerLM(nn.Module):
         token_positions = torch.arange(s,device=token_ids.device)
         x = self.token_embeddings(token_ids)
 
+        total_aux_loss = 0.0
+
         for layer in self.layers:
-            x = layer(x,token_positions)
+            x,layer_aux_loss = layer(x,token_positions)
+            total_aux_loss+=layer_aux_loss
         
 
 
@@ -312,7 +306,7 @@ class TransformerLM(nn.Module):
 
         logits = self.linear_out(x)
 
-        return logits
+        return logits, total_aux_loss
     
     @torch.no_grad()
     def generate(

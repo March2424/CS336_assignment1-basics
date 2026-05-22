@@ -160,8 +160,6 @@ class MultiheadSelfAttention(nn.Module):
         self.k_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.v_proj = Linear(d_model,d_model,device=device,dtype=dtype)
         self.output_proj = Linear(d_model,d_model,device=device,dtype=dtype)
-        self.ln_q = RMSNorm(self.head_dim,device=device,dtype=dtype)
-        self.ln_k = RMSNorm(self.head_dim,device=device,dtype=dtype)
 
         if theta is not None and max_seq_len is not None:
             self.rope = RotaryPositionalEmbedding(theta,self.head_dim,max_seq_len,device=device)
@@ -174,10 +172,6 @@ class MultiheadSelfAttention(nn.Module):
         q_head = self.q_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
         k_head = self.k_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
         v_head = self.v_proj(x).view(batch_size,-1,self.num_heads,self.head_dim).transpose(1,2)
-
-        q_head = self.ln_q(q_head)
-        k_head = self.ln_k(k_head)
-
 
         if self.rope:
             if token_position is not None:
@@ -198,16 +192,10 @@ class TransformerBlock(nn.Module):
         super().__init__()
         self.mha = MultiheadSelfAttention(d_model,num_heads,max_seq_len,theta,device,dtype)
         self.ffn = SwiGLU(d_model,d_ff)
-        #实现Initialization of projections to zero
-        self.mha.output_proj.is_residual_output = True
-        self.ffn.w2.is_residual_output = True
         self.ln1 = RMSNorm(d_model,device=device,dtype=dtype)
         self.ln2 = RMSNorm(d_model,device=device,dtype=dtype)
-        
     
-    # 实现的是prenorm，可以尝试一下qk norm以及hybird norm（对于小模型效果不佳）
     def forward(self,x: torch.Tensor, token_positions: torch.Tensor = None) ->torch.Tensor:
-
         x = x + self.mha(self.ln1(x),token_positions)
 
         x = x + self.ffn(self.ln2(x))
@@ -260,42 +248,6 @@ class TransformerLM(nn.Module):
             self.final_norm = nn.Identity()
 
         self.linear_out = Linear(d_model,vocab_size)
-        
-        # 添加权重绑定(Weight Tying)
-        #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
-        self.linear_out.weight = self.token_embeddings.weight
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, Linear):
-            if hasattr(m, 'is_residual_output') and m.is_residual_output:
-                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零  
-            else:
-                std = math.sqrt(2.0 / (m.in_features + m.out_features))
-                nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-                
-        elif isinstance(m, embedding):
-            #针对绑定后的embedding进行初始化
-            std = math.sqrt(2.0 / (m.num_embeddings + m.embedding_dim))
-            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-
-        # 添加权重绑定(Weight Tying)
-        #令linear_oout的权重矩阵 指向token_embedding的权重矩阵
-        self.linear_out.weight = self.token_embeddings.weight
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, Linear):
-            if hasattr(m, 'is_residual_output') and m.is_residual_output:
-                torch.nn.init.zeros_(m.weight) #核心投影层权重直接归零  
-            else:
-                std = math.sqrt(2.0 / (m.in_features + m.out_features))
-                nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-                
-        elif isinstance(m, embedding):
-            #针对绑定后的embedding进行初始化
-            std = math.sqrt(2.0 / (m.num_embeddings + m.embedding_dim))
-            nn.init.trunc_normal_(m.weight, mean=0.0, std=std, a=-3*std, b=3*std)
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         # [batch_size,seq_len] -> [batch_size,seq_len,d_model]
@@ -365,13 +317,3 @@ class TransformerLM(nn.Module):
 
         logits = logits.masked_fill(indices_to_remove, float('-inf'))
         return logits
-
-
-
-
-
-
-
-
-
-    

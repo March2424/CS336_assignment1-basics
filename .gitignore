@@ -171,5 +171,9 @@ data/**/*.bin
 data/**/*.npy
 data/**/*.pkl
 wandb/
+*.pt
+*.pth
+*.ckpt
+*.toml
 
 .DS_Store

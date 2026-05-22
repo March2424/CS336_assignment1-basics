@@ -1,9 +1,8 @@
-# tinystories baseline prarm
-
-uv run python cs336_basics/train.py \
+contain training code
+    python3 cs336_basics/train.py \
     --train_data_path data/tinystories/train.bin \
     --valid_data_path data/tinystories/val.bin \
-    --run_name "baseline_bs64_lr6e4" \
+    --run_name "baseline_bs256_lr6e-4" \
     --vocab_size 10000 \
     --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
     --max_iters 7000 \
@@ -16,3 +15,91 @@ uv run python cs336_basics/train.py \
     --wandb_project "cs336-pertrained-tinystories" \
     --device cuda
 
+<<<<<<< HEAD
+=======
+
+# tinystories-pertrained-updated 
+    python3 cs336_basics/train.py \
+    --train_data_path data/tinystories/train.bin \
+    --valid_data_path data/tinystories/val.bin \
+    --run_name "baseline_bs256_lr6e-4_updated" \
+    --vocab_size 10000 \
+    --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
+    --max_iters 7000 \
+    --batch_size 64 \
+    --context_length 256 \
+    --lr 6e-4 \
+    --min_lr 6e-5 \
+    --warmup_iters 700 \
+    --out_dir model_result/TinyStories_baseline_updated \
+    --wandb_project "cs336-pertrained-tinystories" \
+    --device cuda
+
+    # tinystories-pertrained-updated_moe
+    python3 cs336_basics/train_moe.py \
+    --train_data_path data/tinystories/train.bin \
+    --valid_data_path data/tinystories/val.bin \
+    --run_name "baseline_bs256_lr6e-4_updated_moe" \
+    --vocab_size 10000 \
+    --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
+    --max_iters 7000 \
+    --batch_size 64 \
+    --context_length 256 \
+    --lr 6e-4 \
+    --min_lr 6e-5 \
+    --warmup_iters 700 \
+    --out_dir model_result/TinyStories_baseline_updated_moe \
+    --wandb_project "cs336-pertrained-tinystories" \
+    --device cuda
+
+    python3 cs336_basics/train.py \
+    --train_data_path data/tinystories/train.bin \
+    --valid_data_path data/tinystories/val.bin \
+    --run_name "updated_bs256_baseline" \
+    --vocab_size 10000 \
+    --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
+    --max_iters 7000 \
+    --batch_size 128 \
+    --context_length 256 \
+    --lr 3e-3 \
+    --min_lr 3e-4 \
+    --warmup_iters 700 \
+    --out_dir model_result/TinyStories_BS256_baseline \
+    --wandb_project "cs336_tinystories" \
+    --device cuda
+    
+    
+    
+    
+    python3 cs336_basics/train.py \
+    --train_data_path data/tinystories/train.bin \
+    --valid_data_path data/tinystories/val.bin \
+    --run_name "updated_bs256_nomoe" \
+    --vocab_size 10000 \
+    --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
+    --max_iters 7000 \
+    --batch_size 128 \
+    --context_length 256 \
+    --lr 3e-3 \
+    --min_lr 3e-4 \
+    --warmup_iters 700 \
+    --out_dir model_result/TinyStories_BS256_nomoe \
+    --wandb_project "cs336_tinystories" \
+    --device cuda
+
+    python3 cs336_basics/train_moe.py \
+    --train_data_path data/tinystories/train.bin \
+    --valid_data_path data/tinystories/val.bin \
+    --run_name "updated_bs256_moe" \
+    --vocab_size 10000 \
+    --num_layers 4 --num_heads 16 --d_model 512 --d_ff 1344 \
+    --max_iters 7000 \
+    --batch_size 128 \
+    --context_length 256 \
+    --lr 3e-3 \
+    --min_lr 3e-4 \
+    --warmup_iters 700 \
+    --out_dir model_result/TinyStories_BS256_moe \
+    --wandb_project "cs336_tinystories" \
+    --device cuda
+>>>>>>> dac09d5 (Final code)

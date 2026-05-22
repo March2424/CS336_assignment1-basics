@@ -5,7 +5,7 @@ import numpy as np
 import wandb
 import typing
 
-from cs336_basics.model_baseline import TransformerLM
+from cs336_basics.model_moe import TransformerLM
 from cs336_basics.optimizer import AdamW, gradient_clip
 from cs336_basics.optimizer import cosine_annealing_lr
 from cs336_basics.dataloader import get_batch
@@ -118,8 +118,8 @@ def main():
         model.train()
         x, y = get_batch(train_data, args.batch_size, args.context_length, args.device)
 
-        logits = model(x)
-        loss = cross_entropy(logits, y)
+        logits, total_aux_loss = model(x)
+        loss = cross_entropy(logits, y) + total_aux_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -133,8 +133,8 @@ def main():
             model.eval()
             with torch.no_grad():
                 vx, vy = get_batch(val_data, args.batch_size, args.context_length, args.device)
-                v_logits = model(vx)
-                v_loss = cross_entropy(v_logits, vy)
+                v_logits, v_aux_loss = model(vx)
+                v_loss = cross_entropy(v_logits, vy) + v_aux_loss
                 print(f"Iter {it}: train_loss {loss.item():.4f}, val_loss {v_loss.item():.4f}, lr {lr:.2e}")
                 
                 wandb.log({
