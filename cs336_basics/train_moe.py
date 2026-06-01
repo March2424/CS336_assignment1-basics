@@ -119,7 +119,11 @@ def main():
         x, y = get_batch(train_data, args.batch_size, args.context_length, args.device)
 
         logits, total_aux_loss = model(x)
-        loss = cross_entropy(logits, y) + total_aux_loss
+        # 🔧 维度对齐：将三维 logits 展平为二维，二维标签 y 展平为一维
+        flat_logits = logits.view(-1, logits.size(-1)) # (batch_size * context_length, vocab_size)
+        flat_y = y.view(-1)                            # (batch_size * context_length,)
+        
+        loss = cross_entropy(flat_logits, flat_y) + total_aux_loss
 
         optimizer.zero_grad()
         loss.backward()
@@ -132,14 +136,26 @@ def main():
         if it % 100 == 0 or it == args.max_iters - 1:
             model.eval()
             with torch.no_grad():
+                # 1. 抽取验证集数据
                 vx, vy = get_batch(val_data, args.batch_size, args.context_length, args.device)
+                
+                # 2. 前向传播
                 v_logits, v_aux_loss = model(vx)
-                v_loss = cross_entropy(v_logits, vy) + v_aux_loss
+                
+                # 🔧 3. 维度严格对齐：将三维 logits 展平为二维，二维标签 vy 展平为一维
+                flat_v_logits = v_logits.view(-1, v_logits.size(-1)) # (batch_size * context_length, vocab_size)
+                flat_vy = vy.view(-1)                                # (batch_size * context_length,)
+                
+                # 4. 计算验证集总 Loss
+                v_loss = cross_entropy(flat_v_logits, flat_vy) + v_aux_loss
+                
+                # 🔧 5. 修正打印变量：将原先的 loss.item() 修正为 v_loss.item()
                 print(f"Iter {it}: train_loss {loss.item():.4f}, val_loss {v_loss.item():.4f}, lr {lr:.2e}")
                 
+                # 6. 上传日志到 WandB
                 wandb.log({
                     "train/loss": loss.item(),
-                    "val/loss": v_loss.item(),
+                    "val/loss": v_loss.item(),  # 确保记录的是验证集 Loss
                     "lr": lr,
                     "iter": it + 1
                 })

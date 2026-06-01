@@ -75,12 +75,13 @@ class MoE(nn.Module):
         # 统计每个专家的实际 Token 分配比例 (f_i)
         expert_mask = torch.zeros_like(routing_probs).scatter_(1, topk_indices, 1.0)
         tokens_per_expert = expert_mask.sum(dim=0) # [num_experts]
-        f_i = tokens_per_expert / (N * self.top_k)
+        f_i = tokens_per_expert / N
         # 统计每个专家的平均期望概率 (P_i)
         p_i = routing_probs.mean(dim=0)
         aux_loss = self.num_experts * torch.sum(f_i * p_i)
 
-        topk_probs = topk_probs / topk_probs.sum(dim=-1, keepdim=True)
+        if self.top_k > 1:
+            topk_probs = topk_probs / topk_probs.sum(dim=-1, keepdim=True)
 
         output_flat = torch.zeros_like(x_flat)
 
@@ -100,11 +101,11 @@ class MoE(nn.Module):
 
             output_flat[token_indices] += expert_output * expert_weights
 
-            total_layer_aux_loss = 0.01 * aux_loss + 1e-4 * z_loss
+        total_layer_aux_loss = 0.01 * aux_loss + 1e-4 * z_loss
 
-            output = output_flat.view(batch_size, seq_len, d_model)
+        output = output_flat.view(batch_size, seq_len, d_model)
 
-            return output, total_layer_aux_loss
+        return output, total_layer_aux_loss
 
 
 
